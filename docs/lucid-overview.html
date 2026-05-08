@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucid — DeFi Portfolio Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #0B0A08;
+    --paper-2: #131210;
+    --paper-3: #1A1815;
+    --surface: #141210;
+    --surface-2: #1B1814;
+    --ink: #EFE9D8;
+    --ink-2: #C9C2B0;
+    --muted: #8E8676;
+    --muted-2: #5E5749;
+    --hairline: color-mix(in oklab, var(--ink) 12%, var(--paper));
+    --hairline-2: color-mix(in oklab, var(--ink) 22%, var(--paper));
+    --accent: #D9FF4A;
+    --accent-fg: #0B0A08;
+    --accent-2: #6BB7FF;
+    --risk-low: #7BD389;
+    --risk-med: #E8C25E;
+    --risk-high: #F39A6A;
+    --risk-crit: #FF7A6E;
+    --pos: #7BD389;
+    --neg: #FF8C7E;
+    --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --font-serif: "Instrument Serif", serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -20% -10% -10% -10%;
+    z-index: -2;
+    background:
+      radial-gradient(46% 38% at 78% 14%, color-mix(in oklab, var(--accent) 45%, transparent), transparent 60%),
+      radial-gradient(38% 32% at 12% 84%, color-mix(in oklab, var(--accent-2) 45%, transparent), transparent 60%),
+      radial-gradient(36% 30% at 88% 86%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 60%),
+      radial-gradient(50% 42% at 22% 18%, color-mix(in oklab, var(--accent-2) 18%, transparent), transparent 60%);
+    filter: saturate(140%);
+    animation: orbDrift 24s ease-in-out infinite alternate;
+  }
+
+  @keyframes orbDrift {
+    0%   { transform: translate3d(0,0,0) scale(1); }
+    50%  { transform: translate3d(-3%, 2%, 0) scale(1.05); }
+    100% { transform: translate3d(2%, -2%, 0) scale(1); }
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Glass card */
+  .card {
+    position: relative;
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--ink) 6%, transparent), color-mix(in oklab, var(--ink) 2%, transparent)),
+      color-mix(in oklab, var(--paper) 55%, transparent);
+    border: 1px solid color-mix(in oklab, var(--ink) 10%, transparent);
+    backdrop-filter: saturate(160%) blur(22px);
+    -webkit-backdrop-filter: saturate(160%) blur(22px);
+    border-radius: 12px;
+    box-shadow:
+      0 1px 0 color-mix(in oklab, var(--ink) 12%, transparent) inset,
+      0 -1px 0 color-mix(in oklab, var(--paper) 30%, transparent) inset,
+      0 30px 60px -30px rgba(0,0,0,.55),
+      0 6px 18px -10px rgba(0,0,0,.4);
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--ink) 18%, transparent), transparent 32%);
+    opacity: .45;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Nav */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 48px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+    position: relative;
+    display: inline-block;
+  }
+
+  .brand-mark::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--ink-2);
+    border-radius: 5px;
+  }
+
+  .brand-mark::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, var(--accent-2)));
+    border-radius: 3px;
+    box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 40%, transparent);
+  }
+
+  .brand em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: color .2s;
+  }
+  nav a:hover { color: var(--ink); }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 80px 0 60px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .eyebrow .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+
+  .hero h1 {
+    font-size: clamp(36px, 5.5vw, 60px);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero p {
+    font-size: 18px;
+    color: var(--ink-2);
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Sections */
+  section {
+    margin-bottom: 80px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .section-head .num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .section-head h2 {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  .section-head p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-left: auto;
+  }
+
+  /* Feature grid */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .feature-card {
+    padding: 28px;
+  }
+
+  .feature-card .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-2);
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .feature-card h3 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+  }
+
+  .feature-card p {
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  /* Architecture */
+  .arch-flow {
+    display: grid;
+    gap: 2px;
+  }
+
+  .arch-step {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    background: var(--paper-2);
+    border: 1px solid var(--hairline);
+    transition: background .2s;
+  }
+
+  .arch-step:hover {
+    background: var(--surface-2);
+  }
+
+  .arch-step .step-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 24px;
+    padding-top: 2px;
+  }
+
+  .arch-step .step-body h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .arch-step .step-body p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .arrow-down {
+    text-align: center;
+    padding: 4px 0;
+    color: var(--muted-2);
+    font-size: 18px;
+  }
+
+  /* Tech stack */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .stack-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--paper-2);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+  }
+
+  .stack-item .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-2);
+    min-width: 65px;
+  }
+
+  .stack-item .val {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  /* Timeline / Milestones */
+  .timeline {
+    display: grid;
+    gap: 0;
+    position: relative;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 28px;
+    bottom: 28px;
+    width: 2px;
+    background: var(--hairline);
+  }
+
+  .milestone {
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    position: relative;
+  }
+
+  .milestone .m-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 5px;
+    justify-self: center;
+    box-shadow: 0 0 0 4px var(--paper), 0 0 0 6px var(--hairline);
+    z-index: 1;
+  }
+
+  .milestone.done .m-dot {
+    background: var(--risk-low);
+  }
+
+  .milestone.future .m-dot {
+    background: var(--muted-2);
+  }
+
+  .milestone h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .milestone .m-meta {
+    display: flex;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .milestone p {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  .milestone .issues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .milestone .issue-tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--paper-3);
+    border: 1px solid var(--hairline);
+    color: var(--ink-2);
+  }
+
+  /* Billing */
+  .plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .plan-card {
+    padding: 28px;
+    position: relative;
+  }
+
+  .plan-card.highlight {
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--ink) 10%, transparent), color-mix(in oklab, var(--ink) 4%, transparent)),
+      color-mix(in oklab, var(--paper) 40%, transparent);
+    border-color: color-mix(in oklab, var(--ink) 20%, transparent);
+  }
+
+  .plan-card .plan-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--accent) 18%, transparent);
+    color: var(--accent);
+    position: absolute;
+    top: 16px;
+    right: 16px;
+  }
+
+  .plan-card .plan-badge.soon {
+    background: var(--paper-3);
+    color: var(--muted);
+  }
+
+  .plan-card .price {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    margin: 12px 0 4px;
+  }
+
+  .plan-card .plan-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .plan-card ul {
+    list-style: none;
+    display: grid;
+    gap: 8px;
+  }
+
+  .plan-card li {
+    font-size: 13px;
+    color: var(--ink-2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .plan-card li::before {
+    content: '✓';
+    color: var(--risk-low);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .plan-card.dimmed {
+    opacity: 0.6;
+  }
+
+  .plan-card.dimmed li::before {
+    color: var(--muted-2);
+  }
+
+  /* Screenshots */
+  .screenshots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .screenshot {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    position: relative;
+  }
+
+  .screenshot img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .screenshot .cap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    background: linear-gradient(transparent, rgba(0,0,0,.8));
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Principle cards */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .principle {
+    padding: 24px;
+  }
+
+  .principle .p-num {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+    margin-bottom: 12px;
+    opacity: .5;
+  }
+
+  .principle h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .principle p {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  /* Risk badge inline */
+  .risk-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .risk-inline .r-bar {
+    width: 2px;
+    height: 14px;
+    border-radius: 1px;
+  }
+
+  .risk-inline .r-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  .stat {
+    text-align: center;
+    padding: 28px 16px;
+  }
+
+  .stat .stat-val {
+    font-family: var(--font-mono);
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: var(--accent);
+  }
+
+  .stat .stat-label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* CTA section */
+  .cta-section {
+    text-align: center;
+    padding: 60px 0;
+  }
+
+  .cta-section h2 {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin-bottom: 12px;
+  }
+
+  .cta-section p {
+    color: var(--ink-2);
+    margin-bottom: 28px;
+    font-size: 16px;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-fg);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 100%, white 8%), var(--accent));
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 35%, transparent),
+      inset 0 -1px 0 color-mix(in oklab, black 18%, transparent),
+      0 8px 24px -8px color-mix(in oklab, var(--accent) 50%, transparent);
+    transition: transform .15s, box-shadow .15s;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 35%, transparent),
+      inset 0 -1px 0 color-mix(in oklab, black 18%, transparent),
+      0 12px 32px -8px color-mix(in oklab, var(--accent) 60%, transparent);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--hairline-2);
+    cursor: pointer;
+    text-decoration: none;
+    margin-left: 12px;
+    transition: border-color .2s, color .2s;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  /* Footer */
+  footer {
+    padding: 24px 0;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 40px;
+  }
+
+  footer .foot-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  footer .foot-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-2);
+  }
+
+  footer a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+  }
+
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 32px; }
+    .features { grid-template-columns: 1fr; }
+    .plans { grid-template-columns: 1fr; }
+    .screenshots { grid-template-columns: 1fr; }
+    .section-head { flex-wrap: wrap; }
+    .section-head p { margin-left: 0; }
+    nav { flex-wrap: wrap; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Nav -->
+  <nav>
+    <div class="brand">
+      <span class="brand-mark"></span>
+      Lucid<em>.</em>
+    </div>
+    <div style="display:flex;gap:20px;align-items:center;">
+      <a href="https://github.com/tenderdeve/defi-explainer">GitHub</a>
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#roadmap">Roadmap</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      Plain-English DeFi
+    </div>
+    <h1>Your DeFi portfolio, explained <em>like a person</em> would.</h1>
+    <p>Paste a wallet address. Get a plain English report of what you own, what's at risk, and how to optimize — powered by AI that never hallucinates your numbers.</p>
+  </div>
+
+  <!-- Stats -->
+  <section>
+    <div class="stats">
+      <div class="card stat">
+        <div class="stat-val">63%</div>
+        <div class="stat-label">of Americans interested in web3 but find it too complex</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-val">0</div>
+        <div class="stat-label">products that explain DeFi positions in plain English</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-val">$22.6B</div>
+        <div class="stat-label">combined AI crypto market cap across 919 projects</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-val">~5%</div>
+        <div class="stat-label">DAO governance participation rate — most users can't keep up</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="section-head">
+      <span class="num">01</span>
+      <h2>What Lucid Does</h2>
+      <p>Three layers of value from a single wallet address</p>
+    </div>
+    <div class="features">
+      <div class="card feature-card">
+        <span class="num">01</span>
+        <h3>Plain English Report</h3>
+        <p>Paste your wallet → get a human-readable summary of every DeFi position. No jargon. Health factors, impermanent loss, APYs — all translated into language anyone can understand.</p>
+      </div>
+      <div class="card feature-card">
+        <span class="num">02</span>
+        <h3>Chat That Knows Your Wallet</h3>
+        <p>Ask follow-up questions grounded in your actual portfolio data. "What happens if ETH drops 30%?" — the AI answers using your real positions, not generic advice.</p>
+      </div>
+      <div class="card feature-card">
+        <span class="num">03</span>
+        <h3>Suggestions, Not Signals</h3>
+        <p>Opportunities detected automatically: rate arbitrage between protocols, idle assets earning 0%, concentration risk. Each with clear impact numbers and one-click protocol links.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section>
+    <div class="section-head">
+      <span class="num">02</span>
+      <h2>How It Works</h2>
+      <p>The AI never touches your numbers</p>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="arch-flow">
+        <div class="arch-step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <h4>Paste Wallet Address</h4>
+            <p>Enter any Ethereum address or connect wallet read-only. No signatures, no transactions, no risk.</p>
+          </div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <h4>Fetch All Positions</h4>
+            <p>Zerion API returns every DeFi position in one call — lending, LPs, staking, wallet tokens. Enriched with yields from DeFiLlama and health factors from Aave.</p>
+          </div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <h4>Deterministic Risk Engine</h4>
+            <p>All financial math computed with decimal.js — health factors, impermanent loss, concentration risk, rate arbitrage, idle assets. <strong>The LLM never sees raw numbers.</strong></p>
+          </div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <h4>AI Translation Layer</h4>
+            <p>Pre-computed risk assessment (JSON) → Claude or GPT translates into plain English. The AI only does language — every number it shows was calculated beforehand.</p>
+          </div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-step">
+          <div class="step-num">05</div>
+          <div class="step-body">
+            <h4>Report + Chat + Suggestions</h4>
+            <p>User gets a readable report, can ask follow-ups in chat (grounded in their data), and sees optimization suggestions ranked by potential dollar impact.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Principles -->
+  <section>
+    <div class="section-head">
+      <span class="num">03</span>
+      <h2>Architecture Principles</h2>
+    </div>
+    <div class="principles">
+      <div class="card principle">
+        <div class="p-num">01</div>
+        <h3>LLM Never Touches Numbers</h3>
+        <p>Risk engine computes everything with decimal.js. LLM only translates pre-computed JSON → natural language. No hallucinated financial data.</p>
+      </div>
+      <div class="card principle">
+        <div class="p-num">02</div>
+        <h3>No Financial Advice</h3>
+        <p>"Opportunities detected" not "you should." Disclaimers on every report. Observations and education, never recommendations.</p>
+      </div>
+      <div class="card principle">
+        <div class="p-num">03</div>
+        <h3>BYOK-First Billing</h3>
+        <p>Users bring their own API key for unlimited free usage. Platform key available with daily limits. Power users pay only what they use.</p>
+      </div>
+      <div class="card principle">
+        <div class="p-num">04</div>
+        <h3>Graceful Degradation</h3>
+        <p>Only Zerion is critical. DeFiLlama down → skip yield comparison. Aave down → skip health factor. LLM down → show raw structured data.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section>
+    <div class="section-head">
+      <span class="num">04</span>
+      <h2>Tech Stack</h2>
+    </div>
+    <div class="stack-grid">
+      <div class="stack-item"><span class="tag">Frontend</span><span class="val">Next.js 14 + TypeScript</span></div>
+      <div class="stack-item"><span class="tag">UI</span><span class="val">Tailwind + shadcn/ui</span></div>
+      <div class="stack-item"><span class="tag">Design</span><span class="val">Dark Glass (Lucid)</span></div>
+      <div class="stack-item"><span class="tag">LLM</span><span class="val">Claude + OpenAI (switchable)</span></div>
+      <div class="stack-item"><span class="tag">AI SDK</span><span class="val">Vercel AI SDK (streaming)</span></div>
+      <div class="stack-item"><span class="tag">Web3</span><span class="val">wagmi + viem + RainbowKit</span></div>
+      <div class="stack-item"><span class="tag">Data</span><span class="val">Zerion API (positions)</span></div>
+      <div class="stack-item"><span class="tag">Yields</span><span class="val">DeFiLlama API</span></div>
+      <div class="stack-item"><span class="tag">Health</span><span class="val">Aave math-utils + RPC</span></div>
+      <div class="stack-item"><span class="tag">Auth/DB</span><span class="val">Supabase (Postgres)</span></div>
+      <div class="stack-item"><span class="tag">Math</span><span class="val">decimal.js (no floats)</span></div>
+      <div class="stack-item"><span class="tag">Validation</span><span class="val">zod schemas</span></div>
+    </div>
+  </section>
+
+  <!-- Design -->
+  <section>
+    <div class="section-head">
+      <span class="num">05</span>
+      <h2>Design System</h2>
+      <p>Dark glass · Electric lime · Warm cream</p>
+    </div>
+    <div class="screenshots">
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/01-landing.png" alt="Landing page" onerror="this.parentElement.style.display='none'">
+        <div class="cap">01 — Landing</div>
+      </div>
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/02-loading.png" alt="Loading state" onerror="this.parentElement.style.display='none'">
+        <div class="cap">02 — Loading</div>
+      </div>
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/03-dashboard.png" alt="Dashboard" onerror="this.parentElement.style.display='none'">
+        <div class="cap">03 — Dashboard</div>
+      </div>
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/04-mobile.png" alt="Mobile" onerror="this.parentElement.style.display='none'">
+        <div class="cap">04 — Mobile</div>
+      </div>
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/05-settings.png" alt="Settings" onerror="this.parentElement.style.display='none'">
+        <div class="cap">05 — Settings</div>
+      </div>
+      <div class="screenshot">
+        <img src="design_handoff_lucid/screenshots/06-upgrade.png" alt="Upgrade modal" onerror="this.parentElement.style.display='none'">
+        <div class="cap">06 — Upgrade</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="card" style="padding:20px;">
+        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;font-size:13px;">
+          <span style="color:var(--muted)">Risk levels:</span>
+          <span class="risk-inline"><span class="r-bar" style="background:var(--risk-low)"></span><span class="r-dot" style="background:var(--risk-low)"></span> Low</span>
+          <span class="risk-inline"><span class="r-bar" style="background:var(--risk-med)"></span><span class="r-dot" style="background:var(--risk-med)"></span> Medium</span>
+          <span class="risk-inline"><span class="r-bar" style="background:var(--risk-high)"></span><span class="r-dot" style="background:var(--risk-high)"></span> High</span>
+          <span class="risk-inline"><span class="r-bar" style="background:var(--risk-crit)"></span><span class="r-dot" style="background:var(--risk-crit)"></span> Critical</span>
+          <span style="margin-left:auto;color:var(--muted-2);font-family:var(--font-mono);font-size:11px;">Vertical bar + dot + mono label · Never filled pills</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Billing -->
+  <section>
+    <div class="section-head">
+      <span class="num">06</span>
+      <h2>Billing Model</h2>
+      <p>BYOK-first · Free tier for discovery</p>
+    </div>
+    <div class="plans">
+      <div class="card plan-card">
+        <span class="plan-badge">Current</span>
+        <div class="eyebrow" style="justify-content:flex-start;margin-bottom:8px;">Free</div>
+        <div class="price">$0</div>
+        <div class="plan-sub">Today · Per day</div>
+        <ul>
+          <li>1 report per day</li>
+          <li>5 chat messages per day</li>
+          <li>All suggestions included</li>
+          <li>Platform API key</li>
+        </ul>
+      </div>
+      <div class="card plan-card highlight">
+        <span class="plan-badge">Recommended</span>
+        <div class="eyebrow" style="justify-content:flex-start;margin-bottom:8px;">BYOK</div>
+        <div class="price">Unlimited</div>
+        <div class="plan-sub">With your own API key</div>
+        <ul>
+          <li>Unlimited reports</li>
+          <li>Unlimited chat</li>
+          <li>All suggestions included</li>
+          <li>Your key, encrypted at rest</li>
+          <li>Pay only what you use (~$0.01-0.05/report)</li>
+        </ul>
+      </div>
+      <div class="card plan-card dimmed">
+        <span class="plan-badge soon">Soon</span>
+        <div class="eyebrow" style="justify-content:flex-start;margin-bottom:8px;">Pro</div>
+        <div class="price">$9</div>
+        <div class="plan-sub">Per month</div>
+        <ul>
+          <li>Unlimited everything</li>
+          <li>Multi-wallet support</li>
+          <li>Priority models</li>
+          <li>Platform manages the key</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap -->
+  <section id="roadmap">
+    <div class="section-head">
+      <span class="num">07</span>
+      <h2>Roadmap</h2>
+      <p>30 issues · 10 milestones · ~70-96 hours</p>
+    </div>
+    <div class="timeline">
+      <div class="milestone done">
+        <div class="m-dot"></div>
+        <div>
+          <h4>1. Project Foundation</h4>
+          <div class="m-meta"><span>4-7 hours</span><span>Issues #1-#3</span></div>
+          <p>Scaffold, types, utilities. Next.js + all deps + shadcn + canonical type system.</p>
+          <div class="issues"><span class="issue-tag">#1 Scaffold ✓</span><span class="issue-tag">#2 Types</span><span class="issue-tag">#3 Utils</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>2. Authentication & Billing</h4>
+          <div class="m-meta"><span>7-10 hours</span><span>Issues #4-#7</span></div>
+          <p>Supabase auth, usage tracking, BYOK key encryption and management.</p>
+          <div class="issues"><span class="issue-tag">#4 Supabase</span><span class="issue-tag">#5 Client</span><span class="issue-tag">#6 Tiers</span><span class="issue-tag">#7 BYOK</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>3. DeFi Data Layer</h4>
+          <div class="m-meta"><span>8-11 hours</span><span>Issues #8-#10</span></div>
+          <p>Zerion API client, DeFiLlama yields, Aave/Compound health factors.</p>
+          <div class="issues"><span class="issue-tag">#8 Zerion</span><span class="issue-tag">#9 DeFiLlama</span><span class="issue-tag">#10 Aave</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>4. Risk Engine</h4>
+          <div class="m-meta"><span>6-8 hours</span><span>Issues #11-#12</span></div>
+          <p>Deterministic financial analysis — health factor, concentration, IL, idle assets, rate arbitrage. All math, no LLM.</p>
+          <div class="issues"><span class="issue-tag">#11 Risk Engine</span><span class="issue-tag">#12 Suggestions</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>5. LLM Integration</h4>
+          <div class="m-meta"><span>4-5 hours</span><span>Issues #13-#14</span></div>
+          <p>Claude + OpenAI switchable provider with BYOK support. System prompts for report + chat.</p>
+          <div class="issues"><span class="issue-tag">#13 Provider</span><span class="issue-tag">#14 Prompts</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>6. API Routes</h4>
+          <div class="m-meta"><span>7-10 hours</span><span>Issues #15-#17</span></div>
+          <p>Portfolio orchestration endpoint, streaming chat, BYOK key CRUD, usage stats.</p>
+          <div class="issues"><span class="issue-tag">#15 Portfolio</span><span class="issue-tag">#16 Chat</span><span class="issue-tag">#17 Keys</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>7. Web3 + App Shell</h4>
+          <div class="m-meta"><span>1-2 hours</span><span>Issue #18</span></div>
+          <p>wagmi + RainbowKit configuration, providers, root layout.</p>
+          <div class="issues"><span class="issue-tag">#18 Wagmi</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>8. UI Components</h4>
+          <div class="m-meta"><span>16-21 hours</span><span>Issues #19-#24</span></div>
+          <p>Lucid design system implementation — glass cards, risk badges, position cards, chat interface, billing UI. All components from design handoff.</p>
+          <div class="issues"><span class="issue-tag">#19 Atomic</span><span class="issue-tag">#20 Billing</span><span class="issue-tag">#21 Wallet</span><span class="issue-tag">#22 Report</span><span class="issue-tag">#23 Suggest</span><span class="issue-tag">#24 Chat</span></div>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="m-dot"></div>
+        <div>
+          <h4>9. Pages + Integration</h4>
+          <div class="m-meta"><span>11-15 hours</span><span>Issues #25-#28</span></div>
+          <p>Landing page, dashboard (desktop + mobile), settings page, middleware. Full end-to-end flow.</p>
+          <div class="issues"><span class="issue-tag">#25 Landing</span><span class="issue-tag">#26 Dashboard</span><span class="issue-tag">#27 Settings</span><span class="issue-tag">#28 Middleware</span></div>
+        </div>
+      </div>
+      <div class="milestone future">
+        <div class="m-dot"></div>
+        <div>
+          <h4>10. Testing + Deploy</h4>
+          <div class="m-meta"><span>5-7 hours</span><span>Issues #29-#30</span></div>
+          <p>End-to-end testing across all features, error states, mobile. Production deployment to Vercel.</p>
+          <div class="issues"><span class="issue-tag">#29 E2E Test</span><span class="issue-tag">#30 Deploy</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="card" style="padding:48px 32px;">
+      <h2>Ready to build</h2>
+      <p>30 issues tracked, design system finalized, architecture locked. Ethereum first, expand later.</p>
+      <a class="btn-primary" href="https://github.com/tenderdeve/defi-explainer">View on GitHub →</a>
+      <a class="btn-ghost" href="https://github.com/tenderdeve/defi-explainer/issues">Browse Issues</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="foot-left">
+      <div class="brand" style="font-size:16px;">
+        <span class="brand-mark" style="width:18px;height:18px;"></span>
+        Lucid<em>.</em>
+      </div>
+      <span style="color:var(--muted);font-size:13px;">© 2026 tenderdeve</span>
+    </div>
+    <div class="foot-right">
+      <span>Not financial advice · Read-only</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
