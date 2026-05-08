@@ -84,5 +84,43 @@ Custom agents in `.claude/agents/`:
 ## Git
 
 - Org: tenderdeve
+- Git identity: `tenderdeve <manmits350@gmail.com>` (local config set)
 - Commit messages: conventional commits format
 - Branch naming: `feat/`, `fix/`, `chore/` prefixes
+- PRs are manually merged by maintainer — never auto-merge
+
+## PR Review Workflow
+
+**Contributor: minoto32** — PRs from this user should be reviewed thoroughly.
+
+### How to Review PRs
+
+1. Use the `pr-reviewer` agent (`.claude/agents/pr-reviewer.md`) with a fresh context
+2. Review against PLAN.md architecture, GITHUB-ISSUES.md acceptance criteria
+3. Check all items in the review checklist (architecture, DeFi math, security, billing, code quality)
+4. Post review via `gh pr review` with approve/request-changes/comment
+5. Maintainer (tenderdeve) manually merges after review passes
+
+### Review Checklist (Quick Reference)
+
+- [ ] LLM never touches financial numbers directly
+- [ ] All financial math uses `decimal.js`
+- [ ] Types imported from `lib/defi/types.ts`
+- [ ] API keys never exposed to client
+- [ ] Health factor thresholds correct
+- [ ] IL formula correct
+- [ ] BYOK key routing works (resolveApiKey)
+- [ ] Usage limits checked BEFORE LLM call
+- [ ] No `any` types
+- [ ] Graceful degradation for API failures
+- [ ] No financial advice language
+- [ ] Mobile responsive
+- [ ] PR references the issue it closes
+
+### Making Changes on PRs
+
+When fixes are needed on a PR from minoto32:
+1. Checkout the PR branch: `gh pr checkout <number>`
+2. Make changes under tenderdeve identity
+3. Commit and push
+4. Maintainer reviews and merges manually
