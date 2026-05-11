@@ -22,9 +22,10 @@ export function formatUsd(value: Decimal | number | string): string {
 
 export function formatPercent(value: Decimal | number | string): string {
   const d = new Decimal(value);
-  if (d.isZero()) return "0.00%";
+  const rounded = d.toFixed(2);
+  if (rounded === "0.00" || rounded === "-0.00") return "0.00%";
   const sign = d.isPositive() ? "+" : "";
-  return `${sign}${d.toFixed(2)}%`;
+  return `${sign}${rounded}%`;
 }
 
 export function truncateAddress(address: string): string {
@@ -37,11 +38,12 @@ export function formatTokenAmount(value: Decimal | number | string): string {
   if (d.isZero()) return "0";
 
   const abs = d.abs();
+  const sign = d.isNegative() ? "-" : "";
   if (abs.gte(1_000_000)) {
-    return `${d.div(1_000_000).toFixed(2)}M`;
+    return `${sign}${abs.div(1_000_000).toFixed(2)}M`;
   }
   if (abs.gte(1_000)) {
-    return d.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${sign}${abs.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }
   if (abs.lt(0.001)) {
     return d.toFixed(6);

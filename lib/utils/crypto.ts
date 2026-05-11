@@ -66,6 +66,6 @@ export function decryptKey(encryptedString: string): string {
 
 /** Returns last 4 characters of a key for display (e.g., "...a1b2") */
 export function getKeyHint(apiKey: string): string {
-  if (apiKey.length < 4) return "...";
+  if (apiKey.length < 8) return "...";
   return `...${apiKey.slice(-4)}`;
 }
