@@ -1,4 +1,3 @@
-import Decimal from "decimal.js";
 import type {
   PortfolioRiskAssessment,
   Suggestion,
@@ -36,16 +35,16 @@ export function generateSuggestions(
         category: "health_factor",
         priority: riskToPriority(hf.riskLevel),
         title: `${hf.protocol} health factor is ${hf.riskLevel}`,
-        description: `Your health factor on ${hf.protocol} is ${hf.healthFactor.toFixed(2)}. ${
+        description: `Health factor on ${hf.protocol} is ${hf.healthFactor.toFixed(2)}. ${
           hf.riskLevel === "critical"
-            ? "You are at immediate risk of liquidation."
-            : "Consider adding collateral or repaying debt to reduce liquidation risk."
+            ? "Liquidation risk detected."
+            : "Elevated liquidation risk detected."
         }`,
         currentValue: `Health Factor: ${hf.healthFactor.toFixed(2)}`,
         suggestedAction:
           hf.riskLevel === "critical"
-            ? "Immediately add collateral or repay debt"
-            : "Add collateral or partially repay debt",
+            ? "Options: add collateral or repay debt"
+            : "Options: add collateral or partially repay debt",
         potentialImpact: `Protect ${formatUsd(hf.totalCollateralUsd)} in collateral from liquidation`,
         relatedProtocol: hf.protocol,
         relatedAsset: null,
@@ -60,9 +59,9 @@ export function generateSuggestions(
       category: "concentration",
       priority: riskToPriority(cr.riskLevel),
       title: `High concentration in ${cr.symbol}`,
-      description: `${cr.symbol} makes up ${cr.allocationPercent.toFixed(1)}% of your portfolio (${formatUsd(cr.valueUsd)}). Consider diversifying to reduce single-asset risk.`,
+      description: `${cr.symbol} makes up ${cr.allocationPercent.toFixed(1)}% of portfolio (${formatUsd(cr.valueUsd)}). Single-asset concentration detected.`,
       currentValue: `${cr.allocationPercent.toFixed(1)}% allocation`,
-      suggestedAction: "Diversify into other assets or protocols",
+      suggestedAction: "Opportunity: diversification across assets or protocols",
       potentialImpact: "Reduced exposure to single-asset price drops",
       relatedProtocol: null,
       relatedAsset: cr.symbol,
@@ -77,9 +76,9 @@ export function generateSuggestions(
         category: "impermanent_loss",
         priority: riskToPriority(il.riskLevel),
         title: `Impermanent loss risk in ${il.pool}`,
-        description: `Estimated IL of ${il.estimatedLossPercent.toFixed(2)}% (${formatUsd(il.estimatedLossUsd)}) on ${il.protocol}. Consider moving to a concentrated liquidity range or single-sided staking.`,
+        description: `Estimated IL of ${il.estimatedLossPercent.toFixed(2)}% (${formatUsd(il.estimatedLossUsd)}) on ${il.protocol}.`,
         currentValue: `${il.estimatedLossPercent.toFixed(2)}% IL`,
-        suggestedAction: "Consider exiting LP or moving to stable pairs",
+        suggestedAction: "Options: concentrated liquidity range, stable pairs, or single-sided staking",
         potentialImpact: `Avoid up to ${formatUsd(il.estimatedLossUsd)} in impermanent loss`,
         relatedProtocol: il.protocol,
         relatedAsset: `${il.token0}/${il.token1}`,

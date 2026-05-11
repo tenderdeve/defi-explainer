@@ -15,12 +15,6 @@ import { fetchAllPools, findBestYieldForToken, getYieldComparison } from "@/lib/
 
 // ─── Thresholds ──────────────────────────────────────────────────────────────
 
-const HF_THRESHOLDS = {
-  low: new Decimal(2),
-  medium: new Decimal(1.5),
-  high: new Decimal(1),
-};
-
 const CONCENTRATION_THRESHOLDS = {
   low: new Decimal(25),
   medium: new Decimal(50),
@@ -41,7 +35,7 @@ const IDLE_ASSET_MIN_APY = new Decimal(1);
 // ─── Risk Level Helpers ──────────────────────────────────────────────────────
 
 function concentrationRiskLevel(pct: Decimal): RiskLevel {
-  if (pct.gte(CONCENTRATION_THRESHOLDS.high)) return "critical";
+  if (pct.gt(CONCENTRATION_THRESHOLDS.high)) return "critical";
   if (pct.gte(CONCENTRATION_THRESHOLDS.medium)) return "high";
   if (pct.gte(CONCENTRATION_THRESHOLDS.low)) return "medium";
   return "low";
@@ -228,37 +222,36 @@ export function calculateOverallRisk(
   positionCount: number
 ): RiskLevel {
   // Weighted scoring: HF 40%, concentration 30%, IL 20%, diversity 10%
-  const riskValue: Record<RiskLevel, number> = {
-    low: 0,
-    medium: 1,
-    high: 2,
-    critical: 3,
+  const riskValue: Record<RiskLevel, Decimal> = {
+    low: new Decimal(0),
+    medium: new Decimal(1),
+    high: new Decimal(2),
+    critical: new Decimal(3),
   };
 
   // Health factor score (worst case)
   const hfScore = healthFactors.length > 0
-    ? Math.max(...healthFactors.map((hf) => riskValue[hf.riskLevel]))
-    : 0;
+    ? Decimal.max(...healthFactors.map((hf) => riskValue[hf.riskLevel]))
+    : new Decimal(0);
 
   // Concentration score (worst case)
   const concScore = concentrationRisks.length > 0
-    ? Math.max(...concentrationRisks.map((c) => riskValue[c.riskLevel]))
-    : 0;
+    ? Decimal.max(...concentrationRisks.map((c) => riskValue[c.riskLevel]))
+    : new Decimal(0);
 
   // IL score (worst case)
   const ilScore = ilEstimates.length > 0
-    ? Math.max(...ilEstimates.map((il) => riskValue[il.riskLevel]))
-    : 0;
+    ? Decimal.max(...ilEstimates.map((il) => riskValue[il.riskLevel]))
+    : new Decimal(0);
 
   // Diversity score: <3 positions = high risk, 3-5 = medium, >5 = low
-  const divScore = positionCount < 3 ? 2 : positionCount <= 5 ? 1 : 0;
+  const divScore = positionCount < 3 ? new Decimal(2) : positionCount <= 5 ? new Decimal(1) : new Decimal(0);
 
-  const weighted =
-    hfScore * 0.4 + concScore * 0.3 + ilScore * 0.2 + divScore * 0.1;
+  const weighted = hfScore.mul("0.4").add(concScore.mul("0.3")).add(ilScore.mul("0.2")).add(divScore.mul("0.1"));
 
-  if (weighted >= 2.5) return "critical";
-  if (weighted >= 1.5) return "high";
-  if (weighted >= 0.5) return "medium";
+  if (weighted.gte("2.5")) return "critical";
+  if (weighted.gte("1.5")) return "high";
+  if (weighted.gte("0.5")) return "medium";
   return "low";
 }
 
