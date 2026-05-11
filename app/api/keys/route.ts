@@ -17,59 +17,89 @@ const deleteKeySchema = z.object({
   provider: z.enum(["anthropic", "openai"]),
 });
 
-async function getAuthenticatedUser(request: NextRequest) {
+async function getAuthenticatedUser() {
   const supabase = await createServerSupabaseClient(cookies());
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
   return user;
 }
 
-export async function GET(request: NextRequest) {
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET() {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const keys = await listUserKeys(user.id);
-  return NextResponse.json({ keys });
+    const keys = await listUserKeys(user.id);
+    return NextResponse.json({ keys });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = await request.json();
-  const parsed = saveKeySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.issues },
-      { status: 400 }
-    );
-  }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-  await saveUserKey(user.id, parsed.data.provider, parsed.data.apiKey);
-  return NextResponse.json({ success: true });
+    const parsed = saveKeySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request", details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const result = await saveUserKey(user.id, parsed.data.provider, parsed.data.apiKey);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 422 });
+    }
+
+    return NextResponse.json({ success: true, hint: result.hint });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = await request.json();
-  const parsed = deleteKeySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.issues },
-      { status: 400 }
-    );
-  }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-  await deleteUserKey(user.id, parsed.data.provider);
-  return NextResponse.json({ success: true });
+    const parsed = deleteKeySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request", details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    await deleteUserKey(user.id, parsed.data.provider);
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
