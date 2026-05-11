@@ -59,7 +59,7 @@ function serializeAssessmentForPrompt(
     sections.push("CONCENTRATION RISKS:");
     for (const cr of assessment.concentrationRisks) {
       sections.push(
-        `- ${cr.symbol}: ${cr.allocationPercent.toFixed(1)}% of portfolio (${formatUsd(cr.valueUsd)}) — ${cr.riskLevel} risk`
+        `- ${cr.symbol}: ${formatPercent(cr.allocationPercent)} of portfolio (${formatUsd(cr.valueUsd)}) — ${cr.riskLevel} risk`
       );
     }
     sections.push("");
@@ -70,7 +70,7 @@ function serializeAssessmentForPrompt(
     sections.push("IMPERMANENT LOSS:");
     for (const il of assessment.impermanentLossEstimates) {
       sections.push(
-        `- ${il.pool} on ${il.protocol}: ~${il.estimatedLossPercent.toFixed(2)}% IL (${formatUsd(il.estimatedLossUsd)}) — ${il.riskLevel} risk`
+        `- ${il.pool} on ${il.protocol}: ~${formatPercent(il.estimatedLossPercent)} IL (${formatUsd(il.estimatedLossUsd)}) — ${il.riskLevel} risk`
       );
     }
     sections.push("");
@@ -92,7 +92,7 @@ function serializeAssessmentForPrompt(
     sections.push("RATE OPPORTUNITIES:");
     for (const arb of assessment.rateArbitrages) {
       sections.push(
-        `- ${arb.symbol}: ${arb.currentProtocol} ${formatPercent(arb.currentApy)} → ${arb.bestProtocol} ${formatPercent(arb.bestApy)} (+${arb.differentialBps.toFixed(0)}bps, ~${formatUsd(arb.potentialAnnualGainUsd)}/yr)`
+        `- ${arb.symbol}: ${arb.currentProtocol} ${formatPercent(arb.currentApy)} → ${arb.bestProtocol} ${formatPercent(arb.bestApy)} (+${arb.differentialBps.toFixed(0)} bps, ~${formatUsd(arb.potentialAnnualGainUsd)}/yr)`
       );
     }
   }
