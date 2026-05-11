@@ -10,7 +10,7 @@ import type {
   SerializedNormalizedPosition,
   PositionCategory,
 } from "@/lib/defi/types";
-import { truncateAddress } from "@/lib/utils/format";
+import { formatUsd, truncateAddress } from "@/lib/utils/format";
 
 interface PortfolioReportProps {
   report: string | null;
@@ -20,8 +20,9 @@ interface PortfolioReportProps {
 
 const CATEGORY_TABS: { value: PositionCategory | "all"; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "lending", label: "Lending" },
-  { value: "liquidity", label: "LPs" },
+  { value: "lending_supply", label: "Supply" },
+  { value: "lending_borrow", label: "Borrow" },
+  { value: "liquidity_pool", label: "LPs" },
   { value: "staking", label: "Staking" },
   { value: "wallet", label: "Wallet" },
 ];
@@ -76,10 +77,7 @@ export function PortfolioReport({
           <p className="text-sm text-[#8E8676] font-mono mt-1">
             {truncateAddress(assessment.walletAddress)} &middot;{" "}
             <span className="text-[#EFE9D8]">
-              $
-              {parseFloat(assessment.totalValueUsd).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })}
+              {formatUsd(assessment.totalValueUsd)}
             </span>{" "}
             &middot; {assessment.positionCount} positions
           </p>
@@ -88,17 +86,26 @@ export function PortfolioReport({
       </div>
 
       {/* Report text */}
-      <div className="prose prose-invert prose-sm max-w-none text-[#C9C2B0] [&_strong]:text-[#EFE9D8] [&_h2]:text-[#EFE9D8] [&_h3]:text-[#EFE9D8]">
-        <div
-          dangerouslySetInnerHTML={{
-            __html: report
-              .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
-              .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold mt-6 mb-2">$1</h2>')
-              .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-              .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
-              .replace(/\n\n/g, "<br/><br/>"),
-          }}
-        />
+      <div className="prose prose-invert prose-sm max-w-none text-[#C9C2B0]">
+        {report.split("\n\n").map((block, i) => {
+          const trimmed = block.trim();
+          if (trimmed.startsWith("## ")) {
+            return <h2 key={i} className="text-lg font-semibold text-[#EFE9D8] mt-6 mb-2">{trimmed.slice(3)}</h2>;
+          }
+          if (trimmed.startsWith("### ")) {
+            return <h3 key={i} className="text-base font-semibold text-[#EFE9D8] mt-4 mb-2">{trimmed.slice(4)}</h3>;
+          }
+          if (trimmed.startsWith("- ")) {
+            return (
+              <ul key={i} className="ml-4 space-y-1">
+                {trimmed.split("\n").map((line, j) => (
+                  <li key={j} className="text-sm">{line.replace(/^- /, "")}</li>
+                ))}
+              </ul>
+            );
+          }
+          return <p key={i} className="text-sm leading-relaxed">{trimmed}</p>;
+        })}
       </div>
 
       {/* Positions */}

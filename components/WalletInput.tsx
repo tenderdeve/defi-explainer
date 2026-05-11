@@ -45,7 +45,7 @@ export function WalletInput({ onAddressSubmit, isLoading }: WalletInputProps) {
     <div className="w-full max-w-xl space-y-4">
       <form onSubmit={handleSubmit} className="flex gap-2">
         <Input
-          placeholder="0x... or ENS name"
+          placeholder="0x..."
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
