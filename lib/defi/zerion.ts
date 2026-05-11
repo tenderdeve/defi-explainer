@@ -62,8 +62,23 @@ export async function fetchWalletPositions(
 }
 
 function mapPositionCategory(
-  positionType: ZerionPosition["attributes"]["position_type"]
+  positionType: ZerionPosition["attributes"]["position_type"],
+  name: string,
+  protocol: string | null
 ): PositionCategory {
+  // Detect liquidity pool positions by name patterns
+  const lowerName = name.toLowerCase();
+  const isLp =
+    lowerName.includes("pool") ||
+    lowerName.includes("lp") ||
+    lowerName.includes("amm") ||
+    (protocol && ["uniswap", "sushiswap", "curve", "balancer", "pancakeswap"]
+      .some((p) => protocol.toLowerCase().includes(p)));
+
+  if (positionType === "deposit" && isLp) {
+    return "liquidity_pool";
+  }
+
   switch (positionType) {
     case "deposit":
       return "lending_supply";
@@ -96,7 +111,7 @@ export function normalizePositions(
       protocol: attr.protocol,
       name: attr.fungible_info.name,
       symbol: attr.fungible_info.symbol,
-      category: mapPositionCategory(attr.position_type),
+      category: mapPositionCategory(attr.position_type, attr.name, attr.protocol),
       valueUsd: new Decimal(attr.value ?? 0),
       quantity: new Decimal(attr.quantity.numeric),
       price: new Decimal(attr.price),

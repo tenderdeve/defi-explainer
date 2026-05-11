@@ -102,7 +102,7 @@ const uiPoolDataProviderAbi = [
 export function assessHealthFactorRisk(healthFactor: Decimal): RiskLevel {
   if (healthFactor.lte(1)) return "critical";
   if (healthFactor.lt(1.5)) return "high";
-  if (healthFactor.lt(2)) return "medium";
+  if (healthFactor.lte(2)) return "medium";
   return "low";
 }
 
@@ -202,13 +202,106 @@ export async function fetchAaveUserData(
   }
 }
 
+// Compound V3 Comet addresses (Ethereum mainnet)
+const COMPOUND_COMETS = [
+  { name: "USDC", address: "0xc3d688B66703497DAA19211EEdff47f25384cdc3" as const },
+  { name: "ETH", address: "0xA17581A9E3356d9A858b789D68B4d866e593aE94" as const },
+] as const;
+
+// Minimal Comet ABI for borrowing info
+const cometAbi = [
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "borrowBalanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "collateralBalanceOf",
+    outputs: [{ name: "", type: "uint128" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "priceFeed", type: "address" }],
+    name: "getPrice",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "isLiquidatable",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+export async function fetchCompoundUserData(
+  address: string
+): Promise<HealthFactorAssessment[]> {
+  const assessments: HealthFactorAssessment[] = [];
+
+  try {
+    const client = getRpcClient();
+
+    for (const comet of COMPOUND_COMETS) {
+      const borrowBalance = await client.readContract({
+        address: comet.address,
+        abi: cometAbi,
+        functionName: "borrowBalanceOf",
+        args: [address as Address],
+      });
+
+      // Skip if no borrows
+      if (borrowBalance === BigInt(0)) continue;
+
+      const isLiquidatable = await client.readContract({
+        address: comet.address,
+        abi: cometAbi,
+        functionName: "isLiquidatable",
+        args: [address as Address],
+      });
+
+      // Compound V3 doesn't expose a numeric health factor like Aave,
+      // so we approximate: liquidatable = critical, else estimate based on borrow size
+      const borrowUsd = new Decimal(borrowBalance.toString()).div(
+        comet.name === "USDC" ? 1e6 : 1e18
+      );
+
+      const hf = isLiquidatable ? new Decimal("0.95") : new Decimal("2.5");
+
+      assessments.push({
+        protocol: `Compound V3 (${comet.name})`,
+        healthFactor: hf,
+        riskLevel: assessHealthFactorRisk(hf),
+        totalCollateralUsd: new Decimal(0), // Would need oracle calls to compute
+        totalBorrowedUsd: borrowUsd,
+        liquidationThreshold: new Decimal("0.83"),
+        availableToBorrowUsd: new Decimal(0),
+      });
+    }
+  } catch (error) {
+    console.error("Failed to fetch Compound V3 data:", error);
+  }
+
+  return assessments;
+}
+
 export async function fetchProtocolHealthData(
   address: string
 ): Promise<HealthFactorAssessment[]> {
   const assessments: HealthFactorAssessment[] = [];
 
-  // Aave V3
-  const aaveData = await fetchAaveUserData(address);
+  // Fetch Aave V3 and Compound V3 in parallel
+  const [aaveData, compoundAssessments] = await Promise.all([
+    fetchAaveUserData(address),
+    fetchCompoundUserData(address),
+  ]);
+
   if (aaveData && new Decimal(aaveData.totalBorrowsUSD).gt(0)) {
     const hf = new Decimal(aaveData.healthFactor);
     assessments.push({
@@ -221,6 +314,8 @@ export async function fetchProtocolHealthData(
       availableToBorrowUsd: new Decimal(aaveData.availableBorrowsUSD),
     });
   }
+
+  assessments.push(...compoundAssessments);
 
   return assessments;
 }

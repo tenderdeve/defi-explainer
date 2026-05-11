@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import type { DefiLlamaPool } from "@/lib/defi/types";
+import type { DefiLlamaPool, YieldComparison } from "@/lib/defi/types";
 
 const POOLS_URL = "https://yields.llama.fi/pools";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -7,24 +7,30 @@ const MIN_TVL = 1_000_000; // $1M minimum TVL for yield recommendations
 
 let poolsCache: { data: DefiLlamaPool[]; timestamp: number } | null = null;
 
-export async function fetchAllPools(): Promise<DefiLlamaPool[]> {
+export async function fetchAllPools(): Promise<DefiLlamaPool[] | null> {
   // Return cached if fresh
   if (poolsCache && Date.now() - poolsCache.timestamp < CACHE_TTL_MS) {
     return poolsCache.data;
   }
 
-  const response = await fetch(POOLS_URL);
-  if (!response.ok) {
-    throw new Error(`DeFiLlama API: HTTP ${response.status}`);
+  try {
+    const response = await fetch(POOLS_URL);
+    if (!response.ok) {
+      console.error(`DeFiLlama API: HTTP ${response.status}`);
+      return null;
+    }
+
+    const json = await response.json();
+    const pools: DefiLlamaPool[] = (json.data as DefiLlamaPool[]).filter(
+      (pool) => pool.chain === "Ethereum"
+    );
+
+    poolsCache = { data: pools, timestamp: Date.now() };
+    return pools;
+  } catch (error) {
+    console.error("DeFiLlama API unavailable:", error);
+    return null;
   }
-
-  const json = await response.json();
-  const pools: DefiLlamaPool[] = (json.data as DefiLlamaPool[]).filter(
-    (pool) => pool.chain === "Ethereum"
-  );
-
-  poolsCache = { data: pools, timestamp: Date.now() };
-  return pools;
 }
 
 export function findBestYieldForToken(
@@ -66,14 +72,6 @@ export function findPoolForProtocolToken(
         pool.tvlUsd >= MIN_TVL
     ) ?? null
   );
-}
-
-export interface YieldComparison {
-  currentProtocol: string;
-  currentApy: Decimal;
-  bestProtocol: string;
-  bestApy: Decimal;
-  differentialBps: Decimal;
 }
 
 export function getYieldComparison(
