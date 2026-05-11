@@ -1,6 +1,7 @@
 "use client";
 
 import type { SerializedNormalizedPosition } from "@/lib/defi/types";
+import { formatUsd, formatPercent, formatTokenAmount } from "@/lib/utils/format";
 
 interface PositionCardProps {
   position: SerializedNormalizedPosition;
@@ -11,10 +12,8 @@ export function PositionCard({
   position,
   showProtocol = true,
 }: PositionCardProps) {
-  const changePercent = position.change24hPercent
-    ? parseFloat(position.change24hPercent)
-    : null;
-  const isPositive = changePercent !== null && changePercent >= 0;
+  const hasChange = position.change24hPercent !== null;
+  const isPositive = hasChange && !position.change24hPercent!.startsWith("-");
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-[#26221C] bg-[#141210] p-3 hover:border-[#383229] transition-colors">
@@ -46,30 +45,22 @@ export function PositionCard({
           )}
         </div>
         <span className="text-xs text-[#8E8676]">
-          {parseFloat(position.quantity).toLocaleString(undefined, {
-            maximumFractionDigits: 4,
-          })}{" "}
-          {position.symbol}
+          {formatTokenAmount(position.quantity)} {position.symbol}
         </span>
       </div>
 
       {/* Value + change */}
       <div className="text-right flex-shrink-0">
         <div className="text-sm font-medium font-mono text-[#EFE9D8]">
-          $
-          {parseFloat(position.valueUsd).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          {formatUsd(position.valueUsd)}
         </div>
-        {changePercent !== null && (
+        {hasChange && (
           <div
             className={`text-xs font-mono ${
               isPositive ? "text-[#7BD389]" : "text-[#FF8C7E]"
             }`}
           >
-            {isPositive ? "+" : ""}
-            {changePercent.toFixed(2)}%
+            {formatPercent(position.change24hPercent!)}
           </div>
         )}
       </div>

@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { LLMProviderName } from "@/lib/llm/types";
+import type { LLMProvider } from "@/lib/llm/types";
 
 interface ApiKeyInputProps {
-  provider: LLMProviderName;
+  provider: LLMProvider;
   existingHint?: string | null;
   onSaved: () => void;
 }
