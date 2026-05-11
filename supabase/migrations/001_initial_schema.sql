@@ -1,7 +1,7 @@
 -- API Keys (encrypted BYOK keys)
 create table user_api_keys (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid references auth.users on delete cascade not null,
   provider text not null check (provider in ('anthropic', 'openai')),
   encrypted_key text not null,
   key_hint text not null,
@@ -11,20 +11,33 @@ create table user_api_keys (
   unique(user_id, provider)
 );
 
+-- Auto-update updated_at on user_api_keys
+create or replace function update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger update_user_api_keys_updated_at
+  before update on user_api_keys
+  for each row execute function update_updated_at_column();
+
 -- Usage Tracking (daily limits)
 create table usage (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid references auth.users on delete cascade not null,
   date date not null default current_date,
-  reports_count int default 0,
-  chat_messages_count int default 0,
+  reports_count int default 0 check (reports_count >= 0),
+  chat_messages_count int default 0 check (chat_messages_count >= 0),
   unique(user_id, date)
 );
 
 -- Subscriptions (Pro tier — deferred)
 create table subscriptions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null unique,
+  user_id uuid references auth.users on delete cascade not null unique,
   tier text not null default 'free' check (tier in ('free', 'pro')),
   stripe_customer_id text,
   stripe_subscription_id text,
@@ -52,17 +65,12 @@ create policy "Users can insert own usage"
 
 create policy "Users can update own usage"
   on usage for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "Users can view own subscription"
   on subscriptions for select
   using (auth.uid() = user_id);
 
--- Service role can manage usage/subscriptions (for server-side operations)
-create policy "Service role manages usage"
-  on usage for all
-  using (auth.role() = 'service_role');
-
-create policy "Service role manages subscriptions"
-  on subscriptions for all
-  using (auth.role() = 'service_role');
+-- Note: Server-side operations use the Supabase service role client,
+-- which bypasses RLS entirely. No explicit service role policies needed.
