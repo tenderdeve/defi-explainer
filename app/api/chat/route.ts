@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod/v4";
+import { isAddress } from "viem";
 import { streamText, type ModelMessage } from "ai";
 import { createServerSupabaseClient } from "@/lib/auth/supabase";
 import { resolveApiKey } from "@/lib/billing/keys";
@@ -8,7 +9,7 @@ import { checkLimit, incrementUsage } from "@/lib/billing/usage";
 import { getModel } from "@/lib/llm/provider";
 import { buildChatSystemPrompt } from "@/lib/llm/prompts";
 import type { PortfolioRiskAssessment } from "@/lib/defi/types";
-import type { LLMProvider } from "@/lib/llm/types";
+
 import Decimal from "decimal.js";
 
 const chatSchema = z.object({
@@ -18,7 +19,9 @@ const chatSchema = z.object({
       content: z.string(),
     })
   ),
-  walletAddress: z.string(),
+  walletAddress: z.string().refine((val) => isAddress(val), {
+    message: "Invalid Ethereum address",
+  }),
   portfolioContext: z.record(z.string(), z.unknown()).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
 });
@@ -74,7 +77,12 @@ function rehydrateAssessment(data: Record<string, unknown>): PortfolioRiskAssess
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
+  }
   const parsed = chatSchema.safeParse(body);
   if (!parsed.success) {
     return new Response(JSON.stringify({ error: "Invalid request" }), {
@@ -122,9 +130,9 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = assessment
     ? buildChatSystemPrompt(assessment, walletAddress)
-    : "You are a helpful DeFi assistant. The user has not loaded a portfolio yet — suggest they analyze a wallet first.";
+    : "You are a DeFi portfolio assistant. No portfolio has been loaded yet. A wallet address can be analyzed to provide portfolio insights.";
 
-  const model = getModel(llmProvider as LLMProvider, resolved.apiKey);
+  const model = getModel(llmProvider, resolved.apiKey);
 
   const result = streamText({
     model,
@@ -134,7 +142,11 @@ export async function POST(request: NextRequest) {
     maxOutputTokens: 1024,
     onFinish: async () => {
       if (resolved.source === "platform") {
-        await incrementUsage(user.id, "chatMessages");
+        try {
+          await incrementUsage(user.id, "chatMessages");
+        } catch (e) {
+          console.error("Failed to track chat usage:", e instanceof Error ? e.message : "Unknown error");
+        }
       }
     },
   });

@@ -12,7 +12,7 @@ import { generateSuggestions } from "@/lib/defi/suggestions";
 import { getModel } from "@/lib/llm/provider";
 import { buildReportSystemPrompt, buildReportUserPrompt } from "@/lib/llm/prompts";
 import { serializeAssessment } from "@/lib/defi/serialize";
-import type { LLMProvider } from "@/lib/llm/types";
+
 
 const portfolioSchema = z.object({
   walletAddress: z.string().refine((val) => isAddress(val), {
@@ -23,7 +23,12 @@ const portfolioSchema = z.object({
 
 export async function POST(request: NextRequest) {
   // Parse request
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = portfolioSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     const suggestions = generateSuggestions(assessment);
 
     // Generate report via LLM
-    const model = getModel(llmProvider as LLMProvider, resolved.apiKey);
+    const model = getModel(llmProvider, resolved.apiKey);
     const { text: report } = await generateText({
       model,
       system: buildReportSystemPrompt(),
@@ -100,7 +105,7 @@ export async function POST(request: NextRequest) {
       suggestions,
     });
   } catch (error) {
-    console.error("Portfolio analysis error:", error);
+    console.error("Portfolio analysis error:", error instanceof Error ? error.message : "Unknown error");
 
     if (error instanceof Error) {
       if (error.message.includes("Zerion API")) {
