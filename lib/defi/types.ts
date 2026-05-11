@@ -200,6 +200,16 @@ export interface Suggestion {
   relatedAsset: string | null;
 }
 
+// ─── Yield Comparison ────────────────────────────────────────────────────────
+
+export interface YieldComparison {
+  currentProtocol: string;
+  currentApy: Decimal;
+  bestProtocol: string;
+  bestApy: Decimal;
+  differentialBps: Decimal;
+}
+
 // ─── Portfolio Report ────────────────────────────────────────────────────────
 
 export interface PortfolioReport {
