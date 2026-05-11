@@ -1,5 +1,4 @@
-import { createBrowserClient as createClient } from "@supabase/ssr";
-import { createServerClient as createServer } from "@supabase/ssr";
+import { createBrowserClient as createClient, createServerClient as createServer } from "@supabase/ssr";
 import type { cookies } from "next/headers";
 
 export function createBrowserClient() {
