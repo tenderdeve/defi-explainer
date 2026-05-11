@@ -82,10 +82,11 @@ function DashboardContent() {
     fetchUsage();
   }, [fetchPortfolio, fetchUsage]);
 
-  if (!address) {
-    router.push("/");
-    return null;
-  }
+  useEffect(() => {
+    if (!address) router.push("/");
+  }, [address, router]);
+
+  if (!address) return null;
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
