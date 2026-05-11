@@ -1,7 +1,7 @@
-export type LLMProviderName = "anthropic" | "openai";
+export type LLMProvider = "anthropic" | "openai";
 
 export interface LLMConfig {
-  provider: LLMProviderName;
+  provider: LLMProvider;
   apiKey?: string;
   model?: string;
 }

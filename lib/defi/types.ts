@@ -85,12 +85,13 @@ export interface AaveUserSummary {
 // ─── Domain Model ────────────────────────────────────────────────────────────
 
 export type PositionCategory =
-  | "lending"
-  | "borrowing"
-  | "liquidity"
+  | "lending_supply"
+  | "lending_borrow"
+  | "liquidity_pool"
   | "staking"
   | "wallet"
-  | "farming"
+  | "reward"
+  | "locked"
   | "other";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -197,6 +198,15 @@ export interface Suggestion {
   potentialImpact: string;
   relatedProtocol: string | null;
   relatedAsset: string | null;
+}
+
+// ─── Portfolio Report ────────────────────────────────────────────────────────
+
+export interface PortfolioReport {
+  report: string;
+  assessment: PortfolioRiskAssessment;
+  suggestions: Suggestion[];
+  generatedAt: Date;
 }
 
 // ─── API Request/Response Types ──────────────────────────────────────────────
