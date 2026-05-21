@@ -29,9 +29,6 @@ importers:
       '@rainbow-me/rainbowkit':
         specifier: ^2.2.11
         version: 2.2.11(@tanstack/react-query@5.100.9(react@19.2.4))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(viem@2.48.11(typescript@5.9.3)(zod@4.4.3))(wagmi@3.6.10(@tanstack/query-core@5.100.9)(@tanstack/react-query@5.100.9(react@19.2.4))(@types/react@19.2.14)(react@19.2.4)(typescript@5.9.3)(viem@2.48.11(typescript@5.9.3)(zod@4.4.3)))
-      '@supabase/ssr':
-        specifier: ^0.10.3
-        version: 0.10.3(@supabase/supabase-js@2.105.3)
       '@supabase/supabase-js':
         specifier: ^2.105.3
         version: 2.105.3
@@ -874,11 +871,6 @@ packages:
   '@supabase/realtime-js@2.105.3':
     resolution: {integrity: sha512-L+qPiJlq1RKh3QD2fORGCFo2RKDKlvG9mjvPtUEQJ2tMixrx70VIV6j8BdWzQkbc1Nao6mvTWajyDhX3TFgljw==}
     engines: {node: '>=20.0.0'}
-
-  '@supabase/ssr@0.10.3':
-    resolution: {integrity: sha512-ux2CJgX89h0Fz2lY7ZNafNG2SkXpyRc5dz77K9eKeBLPdtywQixKwIuetDeIViAJBp/buOUVmgj8PVesOklNpw==}
-    peerDependencies:
-      '@supabase/supabase-js': ^2.105.3
 
   '@supabase/storage-js@2.105.3':
     resolution: {integrity: sha512-M7oPCCcHim/FsR6rKIs10Nd9mW051N2SQvA27jiVLa7oQMFFb7faX5dCQRV4GS5QeFsBcV5J/fWl4Ppoaw8cBQ==}
@@ -4564,11 +4556,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  '@supabase/ssr@0.10.3(@supabase/supabase-js@2.105.3)':
-    dependencies:
-      '@supabase/supabase-js': 2.105.3
-      cookie: 1.1.1
 
   '@supabase/storage-js@2.105.3':
     dependencies:

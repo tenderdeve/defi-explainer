@@ -2,21 +2,25 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PortfolioReport } from "@/components/PortfolioReport";
 import { ChatInterface } from "@/components/ChatInterface";
 import { SuggestionsPanel } from "@/components/SuggestionsPanel";
+import { useWalletSession } from "@/lib/auth/use-wallet-session";
 import type {
   SerializedPortfolioRiskAssessment,
   Suggestion,
 } from "@/lib/defi/types";
-import type { UsageStats } from "@/lib/billing/usage";
+import { AVAILABLE_PROVIDERS, type LLMProvider } from "@/lib/llm/types";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const address = searchParams.get("address");
+  const { isVerified, isVerifying, signIn, address: walletAddress } =
+    useWalletSession();
 
   const [report, setReport] = useState<string | null>(null);
   const [assessment, setAssessment] =
@@ -24,11 +28,15 @@ function DashboardContent() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [usage, setUsage] = useState<UsageStats | null>(null);
-  const [isByok, setIsByok] = useState(false);
+  const [provider, setProvider] = useState<LLMProvider>("anthropic");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("lucid_provider") as LLMProvider | null;
+    if (stored && AVAILABLE_PROVIDERS.includes(stored)) setProvider(stored);
+  }, []);
 
   const fetchPortfolio = useCallback(async () => {
-    if (!address) return;
+    if (!address || !isVerified) return;
     setIsLoading(true);
     setError(null);
 
@@ -36,24 +44,17 @@ function DashboardContent() {
       const res = await fetch("/api/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address }),
+        body: JSON.stringify({ walletAddress: address, provider }),
       });
 
-      if (res.status === 429) {
-        const data = await res.json();
-        setError(data.error || "Daily limit reached");
-        return;
-      }
-      if (res.status === 401) {
-        router.push("/");
-        return;
-      }
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to analyze portfolio");
+        throw new Error(
+          data?.error || `Failed to analyze portfolio (${res.status})`
+        );
       }
 
-      const data = await res.json();
       setReport(data.report);
       setAssessment(data.assessment);
       setSuggestions(data.suggestions || []);
@@ -62,25 +63,11 @@ function DashboardContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [address, router]);
-
-  const fetchUsage = useCallback(async () => {
-    try {
-      const res = await fetch("/api/usage");
-      if (res.ok) {
-        const data = await res.json();
-        setUsage(data);
-        setIsByok(data.isByok);
-      }
-    } catch {
-      // Usage fetch is non-critical
-    }
-  }, []);
+  }, [address, isVerified, provider]);
 
   useEffect(() => {
     fetchPortfolio();
-    fetchUsage();
-  }, [fetchPortfolio, fetchUsage]);
+  }, [fetchPortfolio]);
 
   useEffect(() => {
     if (!address) router.push("/");
@@ -115,21 +102,44 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Error state */}
-      {error && !isLoading && (
+      {/* Not verified: require connect + signature before analyzing */}
+      {!isVerified ? (
+        <div className="flex flex-col items-center justify-center flex-1 gap-4 p-4 text-center">
+          <p className="text-sm text-[#C9C2B0]">
+            Connect your wallet and verify ownership to analyze. Your encrypted
+            API key is tied to your wallet — only you can use it.
+          </p>
+          <ConnectButton />
+          {walletAddress && (
+            <Button
+              onClick={signIn}
+              disabled={isVerifying}
+              className="bg-[#D9FF4A] text-[#0B0A08] hover:bg-[#D9FF4A]/80 font-medium"
+            >
+              {isVerifying ? "Waiting for signature..." : "Verify ownership"}
+            </Button>
+          )}
+        </div>
+      ) : error && !isLoading ? (
         <div className="flex flex-col items-center justify-center flex-1 gap-4 p-4">
           <p className="text-sm text-[#FF7A6E]">{error}</p>
-          <Button
-            onClick={fetchPortfolio}
-            className="bg-[#D9FF4A] text-[#0B0A08] hover:bg-[#D9FF4A]/80"
-          >
-            Retry
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={fetchPortfolio}
+              className="bg-[#D9FF4A] text-[#0B0A08] hover:bg-[#D9FF4A]/80"
+            >
+              Retry
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/settings")}
+              className="border-[#26221C] text-[#C9C2B0] hover:bg-[#1A1815]"
+            >
+              Settings
+            </Button>
+          </div>
         </div>
-      )}
-
-      {/* Desktop layout */}
-      {!error && (
+      ) : (
         <>
           {/* Desktop: side-by-side */}
           <div className="hidden md:flex flex-1 min-h-0">
@@ -149,8 +159,7 @@ function DashboardContent() {
               <ChatInterface
                 walletAddress={address}
                 portfolioContext={assessment}
-                usage={usage}
-                isByok={isByok}
+                provider={provider}
                 onNavigateToSettings={() => router.push("/settings")}
               />
             </div>
@@ -192,8 +201,7 @@ function DashboardContent() {
                 <ChatInterface
                   walletAddress={address}
                   portfolioContext={assessment}
-                  usage={usage}
-                  isByok={isByok}
+                  provider={provider}
                   onNavigateToSettings={() => router.push("/settings")}
                 />
               </TabsContent>

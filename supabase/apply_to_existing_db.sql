@@ -1,7 +1,12 @@
--- API Keys (encrypted BYOK keys), tied to a wallet address.
--- The wallet proves ownership via a one-time signature (see lib/auth/session.ts);
--- there is no email/auth.users account. All access is server-side via the
--- service-role client after the session is verified, so RLS is not used.
+-- BYOK-only reset for an EXISTING dev database (pre-launch, no real data).
+-- Run once in the Supabase SQL Editor. Matches migrations/001_initial_schema.sql.
+-- Drops the old auth-tied schema and recreates the wallet-address-keyed schema.
+
+drop table if exists usage cascade;
+drop table if exists subscriptions cascade;
+drop table if exists user_api_keys cascade;
+drop function if exists increment_usage cascade;
+
 create table user_api_keys (
   id uuid primary key default gen_random_uuid(),
   wallet_address text not null,
@@ -14,7 +19,6 @@ create table user_api_keys (
   unique(wallet_address, provider)
 );
 
--- Auto-update updated_at on user_api_keys
 create or replace function update_updated_at_column()
 returns trigger as $$
 begin

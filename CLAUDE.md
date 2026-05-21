@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AI-powered DeFi portfolio explainer that translates complex DeFi positions into plain English. Users paste an Ethereum wallet address and get a human-readable report, chat interface for follow-ups, and optimization suggestions.
+AI-powered DeFi portfolio explainer. Translate complex DeFi positions to plain English. User paste Ethereum wallet address, get human-readable report, chat interface for follow-ups, optimization suggestions.
 
 ## Stack
 
@@ -11,22 +11,24 @@ AI-powered DeFi portfolio explainer that translates complex DeFi positions into 
 - **LLM:** Claude + OpenAI (switchable via Vercel AI SDK)
 - **Web3:** wagmi + viem + RainbowKit
 - **Data:** Zerion API (positions) + DeFiLlama (yields) + Aave RPC (health factors)
-- **Auth/DB:** Supabase (Auth + Postgres)
+- **Auth:** Wallet ownership via one-time EIP-191 signature → stateless HMAC session cookie (no Supabase Auth, no email login)
+- **DB:** Supabase Postgres (encrypted key store only; server-side service role, no RLS)
 - **Math:** decimal.js (all financial calculations)
 
 ## Architecture Principles
 
-1. **LLM never touches numbers.** Risk engine computes everything deterministically. LLM only translates pre-computed JSON to natural language.
+1. **LLM never touches numbers.** Risk engine compute everything deterministic. LLM only translate pre-computed JSON to natural language.
 2. **No financial advice.** Frame as "opportunities detected" not "you should." Disclaimers on every report.
-3. **BYOK-first billing.** Users can bring their own API key for unlimited free usage, or use platform key with limits.
-4. **Security:** User API keys encrypted with AES-256-GCM at rest. Platform keys server-side only. Supabase RLS on all tables.
+3. **Free, BYOK-only.** No platform LLM keys, no tiers, no usage limits, no subscription. User supplies own Anthropic/OpenAI/Local key.
+4. **Security:** User API keys encrypted with AES-256-GCM at rest, keyed by wallet address. Key access requires a verified ownership session (one-time signature). Decrypted key never returned to client (last-4 hint only).
 
 ## Key Files
 
 - `lib/defi/types.ts` — Canonical type system (all other files import from here)
 - `lib/defi/risk-engine.ts` — Deterministic financial calculations (core business logic)
 - `lib/defi/zerion.ts` — Primary data source (Zerion API client)
-- `lib/billing/keys.ts` — BYOK key management (encrypt/decrypt/validate)
+- `lib/billing/keys.ts` — BYOK key management (encrypt/decrypt/validate), keyed by wallet address
+- `lib/auth/session.ts` — HMAC nonce + ownership session cookie (`getSessionAddress`)
 - `app/api/portfolio/route.ts` — Main orchestration endpoint
 - `PLAN.md` — Full implementation plan with 35 build steps
 
@@ -41,24 +43,27 @@ pnpm typecheck    # TypeScript check (if configured)
 
 ## Environment Variables
 
-See `PLAN.md` → Security → .env.local section for full list. Key ones:
-- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — Platform LLM keys
+See `.env.example` for the full list. Key ones:
+- `ENCRYPTION_SECRET` — AES-256 key (32-byte hex) for encrypting user BYOK keys
+- `SESSION_SECRET` — HMAC secret for wallet ownership session cookies
 - `ZERION_API_KEY` — DeFi data
-- `ENCRYPTION_SECRET` — AES-256 key for encrypting user BYOK keys
-- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase
+- `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` — Supabase Postgres (key store)
 - `ETHEREUM_RPC_URL` — For Aave health factor queries
+- `LOCAL_LLM_BASE_URL` / `LOCAL_LLM_MODEL` — optional local provider endpoint
+
+> Note: BYOK-only — no platform `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`. Users supply their own key per provider in Settings. No Supabase Auth / anon key.
 
 ## Conventions
 
-- All financial math uses `decimal.js`, never native JS floats
+- All financial math use `decimal.js`, never native JS floats
 - Types defined in `lib/defi/types.ts` — single source of truth
 - API routes validate with zod schemas
 - Ethereum addresses validated with viem's `isAddress()`
-- Error handling: graceful degradation (if DeFiLlama down, skip yield comparison; if Aave RPC down, skip health factor)
+- Error handling: graceful degradation (DeFiLlama down → skip yield comparison; Aave RPC down → skip health factor)
 
 ## Knowledge Persistence
 
-All project knowledge must be saved for future reference:
+All project knowledge must save for future reference:
 
 | Type | Location | Format | When |
 |------|----------|--------|------|
@@ -66,7 +71,7 @@ All project knowledge must be saved for future reference:
 | Chats | `docs/chats/` | `YYYY-MM-DD-topic.md` | Significant planning/design conversations |
 | Decisions | `docs/decisions/` | `YYYY-MM-DD-decision.md` | Architecture decisions with context + reasoning |
 
-Pre-project research lives at:
+Pre-project research at:
 - `~/Desktop/web3-ai-research.md` — Web3 x AI landscape
 - `~/Desktop/defi-explainer-fresh-ideas.md` — 10 alternative implementation ideas
 
@@ -87,24 +92,24 @@ Custom agents in `.claude/agents/`:
 - Git identity: `tenderdeve <manmits350@gmail.com>` (local config set)
 - Commit messages: conventional commits format
 - Branch naming: `feat/`, `fix/`, `chore/` prefixes
-- PRs are manually merged by maintainer — never auto-merge
+- PRs manually merged by maintainer — never auto-merge
 
 ## PR Review Workflow
 
-**Contributor: minoto32** — PRs from this user should be reviewed thoroughly.
+**Contributor: minoto32** — PRs from this user review thoroughly.
 
 ### How to Review PRs
 
-1. Use the `pr-reviewer` agent (`.claude/agents/pr-reviewer.md`) with a fresh context
+1. Use `pr-reviewer` agent (`.claude/agents/pr-reviewer.md`) with fresh context
 2. Review against PLAN.md architecture, GITHUB-ISSUES.md acceptance criteria
-3. Check all items in the review checklist (architecture, DeFi math, security, billing, code quality)
+3. Check all items in review checklist (architecture, DeFi math, security, billing, code quality)
 4. Post review via `gh pr review` with approve/request-changes/comment
-5. Maintainer (tenderdeve) manually merges after review passes
+5. Maintainer (tenderdeve) manually merge after review pass
 
 ### Review Checklist (Quick Reference)
 
 - [ ] LLM never touches financial numbers directly
-- [ ] All financial math uses `decimal.js`
+- [ ] All financial math use `decimal.js`
 - [ ] Types imported from `lib/defi/types.ts`
 - [ ] API keys never exposed to client
 - [ ] Health factor thresholds correct
@@ -115,12 +120,12 @@ Custom agents in `.claude/agents/`:
 - [ ] Graceful degradation for API failures
 - [ ] No financial advice language
 - [ ] Mobile responsive
-- [ ] PR references the issue it closes
+- [ ] PR references issue it closes
 
 ### Making Changes on PRs
 
-When fixes are needed on a PR from minoto32:
-1. Checkout the PR branch: `gh pr checkout <number>`
+Fixes needed on PR from minoto32:
+1. Checkout PR branch: `gh pr checkout <number>`
 2. Make changes under tenderdeve identity
 3. Commit and push
 4. Maintainer reviews and merges manually

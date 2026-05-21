@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { isAddress } from "viem";
 
 // Simple in-memory rate limiter (resets on deploy/restart)
@@ -27,7 +26,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rate limit API routes
@@ -43,35 +42,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Supabase auth session refresh
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Validate address on dashboard
+  // Reject malformed dashboard addresses early.
   if (pathname.startsWith("/dashboard")) {
     const address = request.nextUrl.searchParams.get("address");
     if (address && !isAddress(address)) {
@@ -82,14 +53,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect dashboard and settings — redirect to landing if not auth'd
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/settings"))) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

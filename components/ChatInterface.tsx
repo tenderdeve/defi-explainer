@@ -6,16 +6,13 @@ import { TextStreamChatTransport } from "ai";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UsageBanner } from "@/components/UsageBanner";
-import { UpgradePrompt } from "@/components/UpgradePrompt";
 import type { SerializedPortfolioRiskAssessment } from "@/lib/defi/types";
-import type { UsageStats } from "@/lib/billing/usage";
+import type { LLMProvider } from "@/lib/llm/types";
 
 interface ChatInterfaceProps {
   walletAddress: string;
   portfolioContext: SerializedPortfolioRiskAssessment | null;
-  usage: UsageStats | null;
-  isByok?: boolean;
+  provider: LLMProvider;
   onNavigateToSettings?: () => void;
 }
 
@@ -36,11 +33,9 @@ function getMessageText(msg: UIMessage): string {
 export function ChatInterface({
   walletAddress,
   portfolioContext,
-  usage,
-  isByok,
+  provider,
   onNavigateToSettings,
 }: ChatInterfaceProps) {
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -50,16 +45,18 @@ export function ChatInterface({
       body: {
         walletAddress,
         portfolioContext,
+        provider,
       },
     }),
-    onError: (err) => {
-      if (err.message?.includes("429")) {
-        setShowUpgrade(true);
-      }
-    },
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
+  // A 400/401 from the chat route usually means no saved key / not verified.
+  const needsKey =
+    !!error &&
+    (error.message?.includes("400") ||
+      error.message?.includes("401") ||
+      error.message?.toLowerCase().includes("api key"));
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -77,9 +74,6 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Usage banner */}
-      {usage && <UsageBanner usage={usage} isByok={isByok} />}
-
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
@@ -136,9 +130,21 @@ export function ChatInterface({
       </ScrollArea>
 
       {/* Error display */}
-      {error && !showUpgrade && (
-        <div className="px-4 py-2 text-xs text-[#FF7A6E] bg-[#2E1916] border-t border-[#26221C]">
-          {error.message || "Something went wrong. Please try again."}
+      {error && (
+        <div className="px-4 py-2 text-xs text-[#FF7A6E] bg-[#2E1916] border-t border-[#26221C] flex items-center justify-between gap-2">
+          <span>
+            {needsKey
+              ? "Add your LLM API key and verify your wallet in Settings."
+              : error.message || "Something went wrong. Please try again."}
+          </span>
+          {needsKey && onNavigateToSettings && (
+            <button
+              onClick={onNavigateToSettings}
+              className="shrink-0 underline text-[#D9FF4A]"
+            >
+              Settings
+            </button>
+          )}
         </div>
       )}
 
@@ -165,17 +171,6 @@ export function ChatInterface({
           Send
         </Button>
       </form>
-
-      {/* Upgrade prompt */}
-      <UpgradePrompt
-        open={showUpgrade}
-        onOpenChange={setShowUpgrade}
-        feature="chat messages"
-        onAddApiKey={() => {
-          setShowUpgrade(false);
-          onNavigateToSettings?.();
-        }}
-      />
     </div>
   );
 }

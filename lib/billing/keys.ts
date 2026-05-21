@@ -9,10 +9,6 @@ export interface StoredKey {
   createdAt: string;
 }
 
-export interface ResolvedKey {
-  apiKey: string;
-  source: "byok" | "platform";
-}
 
 /** Validate key format and test with a minimal API call */
 async function validateApiKey(
@@ -45,11 +41,23 @@ async function validateApiKey(
     return res.ok || res.status === 429;
   }
 
+  if (provider === "local") {
+    const baseUrl = process.env.LOCAL_LLM_BASE_URL || "http://localhost:11434/v1";
+    try {
+      const res = await fetch(`${baseUrl}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   return false;
 }
 
 export async function saveUserKey(
-  userId: string,
+  walletAddress: string,
   provider: LLMProvider,
   apiKey: string
 ): Promise<{ success: boolean; hint?: string; error?: string }> {
@@ -65,14 +73,14 @@ export async function saveUserKey(
 
   const { error } = await supabase.from("user_api_keys").upsert(
     {
-      user_id: userId,
+      wallet_address: walletAddress.toLowerCase(),
       provider,
       encrypted_key: encrypted,
       key_hint: hint,
       is_valid: true,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,provider" }
+    { onConflict: "wallet_address,provider" }
   );
 
   if (error) {
@@ -83,7 +91,7 @@ export async function saveUserKey(
 }
 
 export async function getUserKey(
-  userId: string,
+  walletAddress: string,
   provider: LLMProvider
 ): Promise<string | null> {
   const supabase = await createServiceRoleClient();
@@ -91,7 +99,7 @@ export async function getUserKey(
   const { data, error } = await supabase
     .from("user_api_keys")
     .select("encrypted_key")
-    .eq("user_id", userId)
+    .eq("wallet_address", walletAddress.toLowerCase())
     .eq("provider", provider)
     .eq("is_valid", true)
     .single();
@@ -105,7 +113,7 @@ export async function getUserKey(
 }
 
 export async function deleteUserKey(
-  userId: string,
+  walletAddress: string,
   provider: LLMProvider
 ): Promise<void> {
   const supabase = await createServiceRoleClient();
@@ -113,7 +121,7 @@ export async function deleteUserKey(
   const { error } = await supabase
     .from("user_api_keys")
     .delete()
-    .eq("user_id", userId)
+    .eq("wallet_address", walletAddress.toLowerCase())
     .eq("provider", provider);
 
   if (error) {
@@ -121,13 +129,15 @@ export async function deleteUserKey(
   }
 }
 
-export async function listUserKeys(userId: string): Promise<StoredKey[]> {
+export async function listUserKeys(
+  walletAddress: string
+): Promise<StoredKey[]> {
   const supabase = await createServiceRoleClient();
 
   const { data, error } = await supabase
     .from("user_api_keys")
     .select("provider, key_hint, is_valid, created_at")
-    .eq("user_id", userId)
+    .eq("wallet_address", walletAddress.toLowerCase())
     .eq("is_valid", true);
 
   if (error) {
@@ -144,24 +154,22 @@ export async function listUserKeys(userId: string): Promise<StoredKey[]> {
   }));
 }
 
+/** Custom error so routes can map "no saved key" to a 400 with a clear message. */
+export class MissingApiKeyError extends Error {
+  constructor(provider: LLMProvider) {
+    super(`No ${provider} API key saved — add one in Settings.`);
+    this.name = "MissingApiKeyError";
+  }
+}
+
+/** Resolve the wallet's own (BYOK) key for a provider. No platform fallback. */
 export async function resolveApiKey(
-  userId: string,
+  walletAddress: string,
   provider: LLMProvider
-): Promise<ResolvedKey> {
-  const userKey = await getUserKey(userId, provider);
-  if (userKey) {
-    return { apiKey: userKey, source: "byok" };
+): Promise<string> {
+  const userKey = await getUserKey(walletAddress, provider);
+  if (!userKey) {
+    throw new MissingApiKeyError(provider);
   }
-
-  // Fall back to platform key
-  const envKey =
-    provider === "anthropic"
-      ? process.env.ANTHROPIC_API_KEY
-      : process.env.OPENAI_API_KEY;
-
-  if (!envKey) {
-    throw new Error(`No API key available for provider: ${provider}`);
-  }
-
-  return { apiKey: envKey, source: "platform" };
+  return userKey;
 }

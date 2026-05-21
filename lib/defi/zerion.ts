@@ -32,7 +32,7 @@ export async function fetchWalletPositions(
 
   const allPositions: ZerionPosition[] = [];
   let url: string | undefined =
-    `${ZERION_BASE_URL}/wallets/${address}/positions/?filter[position_types]=wallet,deposit,staked,reward,borrow,locked&currency=usd&sort=value`;
+    `${ZERION_BASE_URL}/wallets/${address}/positions/?filter[position_types]=wallet,deposit,staked,reward,loan,locked&currency=usd&sort=value`;
 
   while (url) {
     const response = await fetch(url, {

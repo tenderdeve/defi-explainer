@@ -58,7 +58,20 @@ export function PortfolioReport({
     );
   }
 
-  if (!report || !assessment) return null;
+  // Nothing fetched yet.
+  if (!report && !assessment) return null;
+
+  // Report without an assessment = no positions found (or empty wallet).
+  if (!assessment) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center space-y-2">
+        <p className="text-sm text-[#C9C2B0]">{report}</p>
+        <p className="text-xs text-[#5E5749]">
+          Try a wallet with active DeFi positions (lending, LPs, staking).
+        </p>
+      </div>
+    );
+  }
 
   const grouped = groupPositions(assessment.positions);
   const filteredPositions =
@@ -87,7 +100,7 @@ export function PortfolioReport({
 
       {/* Report text */}
       <div className="prose prose-invert prose-sm max-w-none text-[#C9C2B0]">
-        {report.split("\n\n").map((block, i) => {
+        {(report ?? "").split("\n\n").map((block, i) => {
           const trimmed = block.trim();
           if (trimmed.startsWith("## ")) {
             return <h2 key={i} className="text-lg font-semibold text-[#EFE9D8] mt-6 mb-2">{trimmed.slice(3)}</h2>;

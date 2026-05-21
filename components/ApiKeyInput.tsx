@@ -21,9 +21,18 @@ export function ApiKeyInput({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const providerLabel = provider === "anthropic" ? "Claude (Anthropic)" : "OpenAI";
+  const providerLabel =
+    provider === "anthropic"
+      ? "Claude (Anthropic)"
+      : provider === "openai"
+        ? "OpenAI"
+        : "Local (Ollama / OpenAI-compatible)";
   const placeholder =
-    provider === "anthropic" ? "sk-ant-api03-..." : "sk-...";
+    provider === "anthropic"
+      ? "sk-ant-api03-..."
+      : provider === "openai"
+        ? "sk-..."
+        : "ollama (or your local key)";
 
   async function handleSave() {
     if (!key.trim()) return;
