@@ -71,8 +71,9 @@ export default function LandingPage() {
 
       {/* Footer disclaimer */}
       <p className="text-xs text-[#5E5749] mt-16 text-center max-w-md">
-        Lucid is for informational purposes only. Not financial advice. We never
-        request wallet signatures or private keys.
+        Lucid is for informational purposes only. Not financial advice. We only
+        ever request a free off-chain signature to verify wallet ownership —
+        never a transaction or your private keys.
       </p>
     </main>
   );

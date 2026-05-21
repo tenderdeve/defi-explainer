@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { z } from "zod/v4";
 import { isAddress } from "viem";
 import { generateText } from "ai";
-import { createServerSupabaseClient } from "@/lib/auth/supabase";
-import { resolveApiKey } from "@/lib/billing/keys";
-import { checkLimit, incrementUsage } from "@/lib/billing/usage";
+import { getSessionAddress } from "@/lib/auth/session";
+import { resolveApiKey, MissingApiKeyError } from "@/lib/billing/keys";
+import { isProviderAllowed } from "@/lib/llm/types";
 import { getWalletPortfolio } from "@/lib/defi/zerion";
 import { analyzePortfolio } from "@/lib/defi/risk-engine";
 import { generateSuggestions } from "@/lib/defi/suggestions";
@@ -18,7 +17,7 @@ const portfolioSchema = z.object({
   walletAddress: z.string().refine((val) => isAddress(val), {
     message: "Invalid Ethereum address",
   }),
-  provider: z.enum(["anthropic", "openai"]).optional(),
+  provider: z.enum(["anthropic", "openai", "local"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -39,34 +38,36 @@ export async function POST(request: NextRequest) {
 
   const { walletAddress, provider } = parsed.data;
 
-  // Auth check
-  const supabase = await createServerSupabaseClient(cookies());
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // The verified wallet owns the API key (analysis target may be any address).
+  const sessionAddress = getSessionAddress(request);
+  if (!sessionAddress) {
+    return NextResponse.json(
+      { error: "Connect your wallet and verify ownership to analyze." },
+      { status: 401 }
+    );
   }
 
-  // Resolve API key
+  // Resolve the wallet's own (BYOK) key — no platform key, no usage limits.
   const llmProvider = provider || "anthropic";
-  const resolved = await resolveApiKey(user.id, llmProvider);
-
-  // Check limits for platform key users
-  if (resolved.source === "platform") {
-    const limit = await checkLimit(user.id, "reports");
-    if (!limit.allowed) {
-      return NextResponse.json(
-        {
-          error: "Daily report limit reached",
-          upgrade: true,
-          remaining: limit.remaining,
-          limit: limit.limit,
-        },
-        { status: 429 }
-      );
+  if (!isProviderAllowed(llmProvider)) {
+    return NextResponse.json(
+      { error: "The local model is only available in development. Use an Anthropic or OpenAI key." },
+      { status: 400 }
+    );
+  }
+  let apiKey: string;
+  try {
+    apiKey = await resolveApiKey(sessionAddress, llmProvider);
+  } catch (e) {
+    if (e instanceof MissingApiKeyError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
     }
+    // Any other failure (e.g. DB/schema) → clean JSON so the client can show it.
+    console.error("resolveApiKey error:", e instanceof Error ? e.message : e);
+    return NextResponse.json(
+      { error: "Could not read your saved API key. Try again shortly." },
+      { status: 500 }
+    );
   }
 
   try {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     const suggestions = generateSuggestions(assessment);
 
     // Generate report via LLM
-    const model = getModel(llmProvider, resolved.apiKey);
+    const model = getModel(llmProvider, apiKey);
     const { text: report } = await generateText({
       model,
       system: buildReportSystemPrompt(),
@@ -93,11 +94,6 @@ export async function POST(request: NextRequest) {
       temperature: 0.3,
       maxOutputTokens: 2048,
     });
-
-    // Track usage for platform key users
-    if (resolved.source === "platform") {
-      await incrementUsage(user.id, "reports");
-    }
 
     return NextResponse.json({
       report,

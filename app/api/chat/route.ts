@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { z } from "zod/v4";
 import { isAddress } from "viem";
 import { streamText, type ModelMessage } from "ai";
-import { createServerSupabaseClient } from "@/lib/auth/supabase";
-import { resolveApiKey } from "@/lib/billing/keys";
-import { checkLimit, incrementUsage } from "@/lib/billing/usage";
+import { getSessionAddress } from "@/lib/auth/session";
+import { resolveApiKey, MissingApiKeyError } from "@/lib/billing/keys";
 import { getModel } from "@/lib/llm/provider";
+import { isProviderAllowed } from "@/lib/llm/types";
 import { buildChatSystemPrompt } from "@/lib/llm/prompts";
 import type { PortfolioRiskAssessment } from "@/lib/defi/types";
 
@@ -23,7 +22,7 @@ const chatSchema = z.object({
     message: "Invalid Ethereum address",
   }),
   portfolioContext: z.record(z.string(), z.unknown()).optional(),
-  provider: z.enum(["anthropic", "openai"]).optional(),
+  provider: z.enum(["anthropic", "openai", "local"]).optional(),
 });
 
 // Rehydrate Decimal values from serialized assessment
@@ -92,35 +91,35 @@ export async function POST(request: NextRequest) {
 
   const { messages, walletAddress, portfolioContext, provider } = parsed.data;
 
-  // Auth check
-  const supabase = await createServerSupabaseClient(cookies());
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-    });
+  // The verified wallet owns the API key.
+  const sessionAddress = getSessionAddress(request);
+  if (!sessionAddress) {
+    return new Response(
+      JSON.stringify({ error: "Connect your wallet and verify ownership." }),
+      { status: 401 }
+    );
   }
 
-  // Resolve API key
+  // Resolve the wallet's own (BYOK) key — no platform key, no usage limits.
   const llmProvider = provider || "anthropic";
-  const resolved = await resolveApiKey(user.id, llmProvider);
-
-  // Check limits for platform key users
-  if (resolved.source === "platform") {
-    const limit = await checkLimit(user.id, "chatMessages");
-    if (!limit.allowed) {
-      return new Response(
-        JSON.stringify({
-          error: "Daily chat limit reached",
-          upgrade: true,
-          remaining: limit.remaining,
-        }),
-        { status: 429 }
-      );
+  if (!isProviderAllowed(llmProvider)) {
+    return new Response(
+      JSON.stringify({ error: "The local model is only available in development." }),
+      { status: 400 }
+    );
+  }
+  let apiKey: string;
+  try {
+    apiKey = await resolveApiKey(sessionAddress, llmProvider);
+  } catch (e) {
+    if (e instanceof MissingApiKeyError) {
+      return new Response(JSON.stringify({ error: e.message }), { status: 400 });
     }
+    console.error("resolveApiKey error:", e instanceof Error ? e.message : e);
+    return new Response(
+      JSON.stringify({ error: "Could not read your saved API key." }),
+      { status: 500 }
+    );
   }
 
   // Build system prompt from portfolio context
@@ -132,7 +131,7 @@ export async function POST(request: NextRequest) {
     ? buildChatSystemPrompt(assessment, walletAddress)
     : "You are a DeFi portfolio assistant. No portfolio has been loaded yet. A wallet address can be analyzed to provide portfolio insights.";
 
-  const model = getModel(llmProvider, resolved.apiKey);
+  const model = getModel(llmProvider, apiKey);
 
   const result = streamText({
     model,
@@ -140,15 +139,6 @@ export async function POST(request: NextRequest) {
     messages: messages as ModelMessage[],
     temperature: 0.3,
     maxOutputTokens: 1024,
-    onFinish: async () => {
-      if (resolved.source === "platform") {
-        try {
-          await incrementUsage(user.id, "chatMessages");
-        } catch (e) {
-          console.error("Failed to track chat usage:", e instanceof Error ? e.message : "Unknown error");
-        }
-      }
-    },
   });
 
   return result.toTextStreamResponse();

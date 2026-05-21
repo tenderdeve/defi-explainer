@@ -2,57 +2,63 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
+import { useWalletSession } from "@/lib/auth/use-wallet-session";
 import type { StoredKey } from "@/lib/billing/keys";
+import { AVAILABLE_PROVIDERS, type LLMProvider } from "@/lib/llm/types";
 
-interface UsageResponse {
-  reports: { used: number; limit: number };
-  chatMessages: { used: number; limit: number };
-  tier: string;
-  isByok: boolean;
-}
+const PROVIDER_LABELS: Record<LLMProvider, string> = {
+  anthropic: "Claude",
+  openai: "OpenAI",
+  local: "Local",
+};
+
+// "local" is dropped automatically in production via AVAILABLE_PROVIDERS.
+const PROVIDERS = AVAILABLE_PROVIDERS.map((id) => ({
+  id,
+  label: PROVIDER_LABELS[id],
+}));
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { address, isVerified, isVerifying, error, signIn, signOut } =
+    useWalletSession();
   const [keys, setKeys] = useState<StoredKey[]>([]);
-  const [usage, setUsage] = useState<UsageResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [activeProvider, setActiveProvider] = useState<LLMProvider>("anthropic");
+  const [loading, setLoading] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    const stored = localStorage.getItem("lucid_provider") as LLMProvider | null;
+    if (stored && AVAILABLE_PROVIDERS.includes(stored)) setActiveProvider(stored);
+  }, []);
+
+  const fetchKeys = useCallback(async () => {
+    if (!isVerified) {
+      setKeys([]);
+      return;
+    }
     setLoading(true);
     try {
-      const [keysRes, usageRes] = await Promise.all([
-        fetch("/api/keys"),
-        fetch("/api/usage"),
-      ]);
-
-      if (keysRes.status === 401 || usageRes.status === 401) {
-        router.push("/");
-        return;
-      }
-
-      if (keysRes.ok) {
-        const data = await keysRes.json();
+      const res = await fetch("/api/keys");
+      if (res.ok) {
+        const data = await res.json();
         setKeys(data.keys);
       }
-      if (usageRes.ok) {
-        setUsage(await usageRes.json());
-      }
-    } catch {
-      // Non-critical
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [isVerified]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchKeys();
+  }, [fetchKeys]);
 
-  const anthropicKey = keys.find((k) => k.provider === "anthropic");
-  const openaiKey = keys.find((k) => k.provider === "openai");
+  function selectProvider(p: LLMProvider) {
+    setActiveProvider(p);
+    localStorage.setItem("lucid_provider", p);
+  }
 
   return (
     <div className="flex-1 flex flex-col">
@@ -73,115 +79,98 @@ export default function SettingsPage() {
       </div>
 
       <div className="max-w-2xl mx-auto w-full p-6 space-y-8">
-        {/* API Keys */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-base font-semibold text-[#EFE9D8]">
-              API Keys
-            </h2>
-            <p className="text-xs text-[#8E8676] mt-1">
-              Add your own API key for unlimited usage. Keys are encrypted at
-              rest and never sent to the client.
-            </p>
-          </div>
-
-          <div className="space-y-4 rounded-xl border border-[#26221C] bg-[#141210] p-4">
-            <ApiKeyInput
-              provider="anthropic"
-              existingHint={anthropicKey?.keyHint}
-              onSaved={fetchData}
-            />
-            <div className="border-t border-[#26221C]" />
-            <ApiKeyInput
-              provider="openai"
-              existingHint={openaiKey?.keyHint}
-              onSaved={fetchData}
-            />
-          </div>
-        </section>
-
-        {/* Tier */}
+        {/* Wallet + ownership */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-[#EFE9D8]">
-            Current Tier
-          </h2>
-          <div className="rounded-xl border border-[#26221C] bg-[#141210] p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium text-[#EFE9D8] capitalize">
-                  {usage?.tier || "free"}
+          <h2 className="text-base font-semibold text-[#EFE9D8]">Wallet</h2>
+          <div className="rounded-xl border border-[#26221C] bg-[#141210] p-4 space-y-3">
+            <ConnectButton />
+            {address && !isVerified && (
+              <div className="space-y-2">
+                <p className="text-xs text-[#8E8676]">
+                  Sign a free message to prove you own this wallet. This unlocks
+                  your encrypted API keys — no transaction, no gas.
+                </p>
+                <Button
+                  onClick={signIn}
+                  disabled={isVerifying}
+                  className="bg-[#D9FF4A] text-[#0B0A08] hover:bg-[#D9FF4A]/80 font-medium"
+                >
+                  {isVerifying ? "Waiting for signature..." : "Verify ownership"}
+                </Button>
+                {error && <p className="text-xs text-[#FF7A6E]">{error}</p>}
+              </div>
+            )}
+            {isVerified && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#D9FF4A]">
+                  Ownership verified
                 </span>
-                {usage?.isByok && (
-                  <span className="ml-2 text-xs text-[#D9FF4A]">
-                    Unlimited (BYOK)
-                  </span>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={signOut}
+                  className="border-[#26221C] text-[#C9C2B0] hover:bg-[#1A1815] text-xs"
+                >
+                  Sign out
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled
-                className="border-[#26221C] text-[#5E5749] text-xs"
-              >
-                Upgrade to Pro — coming soon
-              </Button>
-            </div>
+            )}
           </div>
         </section>
 
-        {/* Usage */}
-        <section className="space-y-3">
-          <h2 className="text-base font-semibold text-[#EFE9D8]">
-            Today&apos;s Usage
-          </h2>
-          {usage && !usage.isByok ? (
-            <div className="rounded-xl border border-[#26221C] bg-[#141210] p-4 space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#8E8676]">Reports</span>
-                  <span className="font-mono text-[#C9C2B0]">
-                    {usage.reports.used} / {usage.reports.limit}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(
-                    100,
-                    (usage.reports.used / usage.reports.limit) * 100
-                  )}
-                  className="h-1.5 bg-[#1A1815] [&>div]:bg-[#D9FF4A]"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-[#8E8676]">Chat messages</span>
-                  <span className="font-mono text-[#C9C2B0]">
-                    {usage.chatMessages.used} / {usage.chatMessages.limit}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(
-                    100,
-                    (usage.chatMessages.used / usage.chatMessages.limit) * 100
-                  )}
-                  className="h-1.5 bg-[#1A1815] [&>div]:bg-[#D9FF4A]"
-                />
-              </div>
-              <p className="text-xs text-[#5E5749]">
-                Usage resets daily at midnight UTC.
+        {/* API Keys */}
+        {isVerified ? (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-[#EFE9D8]">
+                API Keys
+              </h2>
+              <p className="text-xs text-[#8E8676] mt-1">
+                Bring your own LLM key. Your key is encrypted (AES-256-GCM) and
+                tied to your verified wallet — only you can access it, and it is
+                never sent back to the browser.
               </p>
             </div>
-          ) : usage?.isByok ? (
-            <div className="rounded-xl border border-[#26221C] bg-[#141210] p-4">
-              <p className="text-sm text-[#8E8676]">
-                Unlimited usage with your own API key. No limits applied.
-              </p>
+
+            {/* Active provider selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#8E8676]">Use for analysis:</span>
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => selectProvider(p.id)}
+                  className={`rounded-lg border px-3 py-1 text-xs ${
+                    activeProvider === p.id
+                      ? "border-[#D9FF4A] text-[#D9FF4A]"
+                      : "border-[#26221C] text-[#8E8676] hover:bg-[#1A1815]"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
-          ) : loading ? (
-            <div className="rounded-xl border border-[#26221C] bg-[#141210] p-4">
-              <p className="text-sm text-[#5E5749]">Loading...</p>
+
+            <div className="space-y-4 rounded-xl border border-[#26221C] bg-[#141210] p-4">
+              {PROVIDERS.map((p, i) => (
+                <div key={p.id} className="space-y-4">
+                  {i > 0 && <div className="border-t border-[#26221C]" />}
+                  <ApiKeyInput
+                    provider={p.id}
+                    existingHint={keys.find((k) => k.provider === p.id)?.keyHint}
+                    onSaved={fetchKeys}
+                  />
+                </div>
+              ))}
+              {loading && (
+                <p className="text-xs text-[#5E5749]">Loading keys...</p>
+              )}
             </div>
-          ) : null}
-        </section>
+          </section>
+        ) : (
+          <p className="text-sm text-[#8E8676]">
+            Connect and verify your wallet to manage API keys.
+          </p>
+        )}
       </div>
     </div>
   );

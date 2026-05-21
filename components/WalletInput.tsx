@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { isAddress } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -17,17 +17,9 @@ export function WalletInput({ onAddressSubmit, isLoading }: WalletInputProps) {
   const [error, setError] = useState<string | null>(null);
   const { address: connectedAddress, isConnected } = useAccount();
 
-  // Auto-submit on wallet connect
-  useEffect(() => {
-    if (isConnected && connectedAddress) {
-      onAddressSubmit(connectedAddress);
-    }
-  }, [isConnected, connectedAddress, onAddressSubmit]);
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = input.trim();
-
     if (!trimmed) {
       setError("Enter an Ethereum address");
       return;
@@ -36,16 +28,16 @@ export function WalletInput({ onAddressSubmit, isLoading }: WalletInputProps) {
       setError("Invalid Ethereum address");
       return;
     }
-
     setError(null);
     onAddressSubmit(trimmed);
   }
 
   return (
     <div className="w-full max-w-xl space-y-4">
+      {/* Paste any address (read-only analysis target) */}
       <form onSubmit={handleSubmit} className="flex gap-2">
         <Input
-          placeholder="0x..."
+          placeholder="0x... wallet to analyze"
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
@@ -80,8 +72,19 @@ export function WalletInput({ onAddressSubmit, isLoading }: WalletInputProps) {
         <div className="flex-1 h-px bg-[#26221C]" />
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         <ConnectButton />
+        {isConnected && connectedAddress && (
+          <Button
+            type="button"
+            onClick={() => onAddressSubmit(connectedAddress)}
+            disabled={isLoading}
+            variant="outline"
+            className="border-[#26221C] text-[#C9C2B0] hover:bg-[#1A1815] text-sm"
+          >
+            Analyze my wallet
+          </Button>
+        )}
       </div>
     </div>
   );
